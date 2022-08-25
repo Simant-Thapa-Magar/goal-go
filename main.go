@@ -9,16 +9,22 @@ import (
 	"github.com/gdamore/tcell/v2/encoding"
 )
 
-type Paddle struct {
-	row, col int
+type GameObject struct {
+	row, col, height, width int
+	symbol                  rune
 }
 
 var Screen tcell.Screen
-var player1, player2 *Paddle
+var player1, player2, ball *GameObject
+
+var gameObjects []*GameObject
 
 const PADDLE_HEIGHT = 4
 const PADDLE_WIDTH = 1
 const PADDLE_SYMBOL = 0x2588
+const BALL_SYMBOL = 0x25CF
+const BALL_HEIGHT = 1
+const BALL_WIDTH = 1
 
 func main() {
 
@@ -45,8 +51,9 @@ func Print(x, y, h, w int, ch rune) {
 
 func printGameState() {
 	Screen.Clear()
-	Print(player1.col, player1.row, PADDLE_HEIGHT, PADDLE_WIDTH, PADDLE_SYMBOL)
-	Print(player2.col, player2.row, PADDLE_HEIGHT, PADDLE_WIDTH, PADDLE_SYMBOL)
+	for _, obj := range gameObjects {
+		Print(obj.col, obj.row, obj.height, obj.width, obj.symbol)
+	}
 	Screen.Show()
 }
 
@@ -72,13 +79,29 @@ func initScreen() {
 func initGame() {
 	w, h := Screen.Size()
 	PADDLE_START := h/2 - PADDLE_HEIGHT/2
-	player1 = &Paddle{
-		row: PADDLE_START,
-		col: 0,
+	player1 = &GameObject{
+		row:    PADDLE_START,
+		col:    0,
+		height: PADDLE_HEIGHT,
+		width:  PADDLE_WIDTH,
+		symbol: PADDLE_SYMBOL,
 	}
-	player2 = &Paddle{
-		row: PADDLE_START,
-		col: w - 1,
+	player2 = &GameObject{
+		row:    PADDLE_START,
+		col:    w - 1,
+		height: PADDLE_HEIGHT,
+		width:  PADDLE_WIDTH,
+		symbol: PADDLE_SYMBOL,
+	}
+	ball = &GameObject{
+		row:    h / 2,
+		col:    w / 2,
+		height: BALL_HEIGHT,
+		width:  BALL_WIDTH,
+		symbol: BALL_SYMBOL,
+	}
+	gameObjects = []*GameObject{
+		player1, player2, ball,
 	}
 }
 
