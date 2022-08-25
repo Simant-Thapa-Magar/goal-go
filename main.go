@@ -20,9 +20,11 @@ type Coordinate struct {
 
 var Screen tcell.Screen
 var player1, player2, ball *GameObject
+var gamePauseStatus bool
 
 var gameObjects []*GameObject
 var coordinatesToClear []Coordinate
+var screenWidth, screenHeight int
 
 const PADDLE_HEIGHT = 4
 const PADDLE_WIDTH = 1
@@ -52,6 +54,9 @@ func main() {
 }
 
 func updateGameState() {
+	if gamePauseStatus {
+		return
+	}
 	coordinatesToClear = append(coordinatesToClear, Coordinate{
 		ball.col,
 		ball.row,
@@ -64,7 +69,6 @@ func updateGameState() {
 }
 
 func handleBallCollision() {
-	screenWidth, screenHeight := Screen.Size()
 	var doesBallHitPaddle bool
 
 	// upper and lower collision
@@ -86,12 +90,10 @@ func handleBallCollision() {
 }
 
 func isGameOver() bool {
-	screenWidth, _ := Screen.Size()
 	return ball.col < 0 || ball.col > screenWidth
 }
 
 func getWinner() string {
-	screenWidth, _ := Screen.Size()
 	var winner string
 	if ball.col < 0 {
 		winner = "Player2"
@@ -102,22 +104,11 @@ func getWinner() string {
 }
 
 func printGameEndInfo(winner string) {
-	screenWidth, screenHeight := Screen.Size()
 	winnerInfo := fmt.Sprintf("%s wins", winner)
 	gameEndInfo := fmt.Sprint("Game Over !!")
 
-	startPointX := screenWidth/2 - len(winnerInfo)/2
-	startPointY := screenHeight / 2
-	for i := 0; i < len(winnerInfo); i++ {
-		Print(startPointX+i, startPointY, 1, 1, rune(winnerInfo[i]))
-	}
-
-	startPointX = screenWidth/2 - len(gameEndInfo)/2
-	startPointY = screenHeight/2 - 1
-	for i := 0; i < len(gameEndInfo); i++ {
-		Print(startPointX+i, startPointY, 1, 1, rune(gameEndInfo[i]))
-	}
-	Screen.Show()
+	printInCenter(screenHeight/2-1, gameEndInfo, false)
+	printInCenter(screenHeight/2, winnerInfo, false)
 }
 
 func Print(x, y, h, w int, ch rune) {
@@ -129,7 +120,10 @@ func Print(x, y, h, w int, ch rune) {
 }
 
 func printGameState() {
-	//Screen.Clear()
+	if gamePauseStatus {
+		printInCenter(screenHeight/2, "Game Paused !", true)
+		return
+	}
 	clearCoordinates()
 	for _, obj := range gameObjects {
 		Print(obj.col, obj.row, obj.height, obj.width, obj.symbol)
@@ -154,11 +148,11 @@ func initScreen() {
 		Background(tcell.ColorBlack).
 		Foreground(tcell.ColorWhite)
 	Screen.SetStyle(defStyle)
+	screenWidth, screenHeight = Screen.Size()
 }
 
 func initGame() {
-	w, h := Screen.Size()
-	PADDLE_START := h/2 - PADDLE_HEIGHT/2
+	PADDLE_START := screenHeight/2 - PADDLE_HEIGHT/2
 	player1 = &GameObject{
 		row:            PADDLE_START,
 		col:            0,
@@ -170,7 +164,7 @@ func initGame() {
 	}
 	player2 = &GameObject{
 		row:            PADDLE_START,
-		col:            w - 1,
+		col:            screenWidth - 1,
 		height:         PADDLE_HEIGHT,
 		width:          PADDLE_WIDTH,
 		symbol:         PADDLE_SYMBOL,
@@ -178,8 +172,8 @@ func initGame() {
 		columnVelocity: 0,
 	}
 	ball = &GameObject{
-		row:            h / 2,
-		col:            w / 2,
+		row:            screenHeight / 2,
+		col:            screenWidth / 2,
 		height:         BALL_HEIGHT,
 		width:          BALL_WIDTH,
 		symbol:         BALL_SYMBOL,
@@ -216,30 +210,33 @@ func readInput(userInput chan string) string {
 
 func handleUserInput(key string) {
 	var x, y int
-	_, screenHeight := Screen.Size()
 	if key == "Rune[q]" {
 		Screen.Fini()
 		os.Exit(0)
-	} else if key == "Up" && player2.row > 0 {
-		x = player2.col
-		y = player2.row + player2.height - 1
-		player2.row--
-	} else if key == "Down" && (player2.row+PADDLE_HEIGHT) < screenHeight {
-		x = player2.col
-		y = player2.row
-		player2.row++
-	} else if key == "Rune[w]" && player1.row > 0 {
-		x = player1.col
-		y = player1.row + player1.height - 1
-		player1.row--
-	} else if key == "Rune[s]" && (player1.row+PADDLE_HEIGHT) < screenHeight {
-		x = player1.col
-		y = player1.row
-		player1.row++
+	} else if key == "Rune[p]" {
+		gamePauseStatus = !gamePauseStatus
+	} else if !gamePauseStatus {
+		if key == "Up" && player2.row > 0 {
+			x = player2.col
+			y = player2.row + player2.height - 1
+			player2.row--
+		} else if key == "Down" && (player2.row+PADDLE_HEIGHT) < screenHeight {
+			x = player2.col
+			y = player2.row
+			player2.row++
+		} else if key == "Rune[w]" && player1.row > 0 {
+			x = player1.col
+			y = player1.row + player1.height - 1
+			player1.row--
+		} else if key == "Rune[s]" && (player1.row+PADDLE_HEIGHT) < screenHeight {
+			x = player1.col
+			y = player1.row
+			player1.row++
+		}
+		coordinatesToClear = append(coordinatesToClear, Coordinate{
+			x, y,
+		})
 	}
-	coordinatesToClear = append(coordinatesToClear, Coordinate{
-		x, y,
-	})
 }
 
 func clearCoordinates() {
@@ -247,4 +244,18 @@ func clearCoordinates() {
 		Print(coordinate.x, coordinate.y, 1, 1, ' ')
 	}
 	coordinatesToClear = nil
+}
+
+func printInCenter(yAxis int, word string, trackClearCoordinates bool) {
+	wordLength := len(word)
+	startPointX := (screenWidth - wordLength) / 2
+	for i := 0; i < wordLength; i++ {
+		Print(startPointX+i, yAxis, 1, 1, rune(word[i]))
+		if trackClearCoordinates {
+			coordinatesToClear = append(coordinatesToClear, Coordinate{
+				startPointX + i, yAxis,
+			})
+		}
+	}
+	Screen.Show()
 }
