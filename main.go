@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"time"
 
@@ -25,6 +26,8 @@ var gameReadyStatus, gamePauseStatus bool
 var gameObjects []*GameObject
 var coordinatesToClear []Coordinate
 var screenWidth, screenHeight int
+var player1Points, player2Points int
+var roundWinner string
 
 const PADDLE_HEIGHT = 4
 const PADDLE_WIDTH = 1
@@ -34,6 +37,7 @@ const BALL_HEIGHT = 1
 const BALL_WIDTH = 1
 const INITIAL_BALL_ROW_VELOCITY = 1
 const INITIAL_BALL_COLUMN_VELOCITY = 2
+const BEST_OF = 5
 
 func main() {
 
@@ -46,10 +50,17 @@ func main() {
 		handleUserInput(key)
 		updateGameState()
 		printGameState()
+		if isRoundOver() {
+			updateScore()
+			printRoundInfo()
+			time.Sleep(2500 * time.Millisecond)
+			initGame()
+			clearAllScreen()
+		}
 	}
 
-	winner := getWinner()
-	printGameEndInfo(winner)
+	winner, winningPoint := getWinner()
+	printGameEndInfo(winner, winningPoint)
 	time.Sleep(5000 * time.Millisecond)
 }
 
@@ -77,7 +88,7 @@ func handleBallCollision() {
 	}
 
 	// collision with paddles
-	if ball.col+ball.columnVelocity <= 0 {
+	if ball.col+ball.columnVelocity <= 1 {
 		doesBallHitPaddle = ball.row >= player1.row && ball.row <= (player1.row+player1.height)
 	} else if ball.col+ball.columnVelocity >= screenWidth-1 {
 		doesBallHitPaddle = ball.row >= player2.row && ball.row <= (player2.row+player2.height)
@@ -90,21 +101,28 @@ func handleBallCollision() {
 }
 
 func isGameOver() bool {
+	return player1Points > BEST_OF/2 || player2Points > BEST_OF/2
+}
+
+func isRoundOver() bool {
 	return ball.col < 0 || ball.col > screenWidth
 }
 
-func getWinner() string {
+func getWinner() (string, int) {
 	var winner string
-	if ball.col < 0 {
+	var winningPoint int
+	if player2Points > player1Points {
 		winner = "Player2"
-	} else if ball.col > screenWidth {
+		winningPoint = player2Points
+	} else if player1Points > player2Points {
 		winner = "Player1"
+		winningPoint = player1Points
 	}
-	return winner
+	return winner, winningPoint
 }
 
-func printGameEndInfo(winner string) {
-	winnerInfo := fmt.Sprintf("%s wins", winner)
+func printGameEndInfo(winner string, winningPoint int) {
+	winnerInfo := fmt.Sprintf("%s wins with %d points", winner, winningPoint)
 	gameEndInfo := fmt.Sprint("Game Over !!")
 
 	printInCenter(screenHeight/2-1, gameEndInfo, false)
@@ -121,7 +139,8 @@ func Print(x, y, h, w int, ch rune) {
 
 func printGameState() {
 	if !gameReadyStatus {
-		printInCenter(screenHeight/2-1, "Welcome to Goal !!", true)
+		printInCenter(screenHeight/2-2, "Welcome to Goal !!", true)
+		printInCenter(screenHeight/2-1, fmt.Sprintf("First player to get %d points wins", int(math.Floor(BEST_OF/2)+1)), true)
 		printInCenter(screenHeight/2, "Press space to start the game!", true)
 		return
 	} else if gamePauseStatus {
@@ -252,6 +271,21 @@ func clearCoordinates() {
 	coordinatesToClear = nil
 }
 
+func updateScore() {
+	if ball.col < 0 {
+		roundWinner = "Player2"
+		player2Points++
+	} else if ball.col > screenWidth {
+		roundWinner = "Player1"
+		player1Points++
+	}
+}
+
+func printRoundInfo() {
+	printInCenter(screenHeight/2-1, fmt.Sprintf("%s wins the round", roundWinner), true)
+	printInCenter(screenHeight/2, fmt.Sprintf("Score: Player1 %d - %d Player2", player1Points, player2Points), true)
+}
+
 func printInCenter(yAxis int, word string, trackClearCoordinates bool) {
 	wordLength := len(word)
 	startPointX := (screenWidth - wordLength) / 2
@@ -264,4 +298,8 @@ func printInCenter(yAxis int, word string, trackClearCoordinates bool) {
 		}
 	}
 	Screen.Show()
+}
+
+func clearAllScreen() {
+	Screen.Clear()
 }
