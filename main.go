@@ -14,10 +14,15 @@ type GameObject struct {
 	symbol                                               rune
 }
 
+type Coordinate struct {
+	x, y int
+}
+
 var Screen tcell.Screen
 var player1, player2, ball *GameObject
 
 var gameObjects []*GameObject
+var coordinatesToClear []Coordinate
 
 const PADDLE_HEIGHT = 4
 const PADDLE_WIDTH = 1
@@ -34,7 +39,7 @@ func main() {
 	initGame()
 	userInput := listenUserInput()
 	for !isGameOver() {
-		time.Sleep(25 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 		key := readInput(userInput)
 		handleUserInput(key)
 		updateGameState()
@@ -47,6 +52,10 @@ func main() {
 }
 
 func updateGameState() {
+	coordinatesToClear = append(coordinatesToClear, Coordinate{
+		ball.col,
+		ball.row,
+	})
 	for _, obj := range gameObjects {
 		obj.row += obj.rowVelocity
 		obj.col += obj.columnVelocity
@@ -120,7 +129,8 @@ func Print(x, y, h, w int, ch rune) {
 }
 
 func printGameState() {
-	Screen.Clear()
+	//Screen.Clear()
+	clearCoordinates()
 	for _, obj := range gameObjects {
 		Print(obj.col, obj.row, obj.height, obj.width, obj.symbol)
 	}
@@ -205,17 +215,36 @@ func readInput(userInput chan string) string {
 }
 
 func handleUserInput(key string) {
+	var x, y int
 	_, screenHeight := Screen.Size()
 	if key == "Rune[q]" {
 		Screen.Fini()
 		os.Exit(0)
 	} else if key == "Up" && player2.row > 0 {
+		x = player2.col
+		y = player2.row + player2.height - 1
 		player2.row--
 	} else if key == "Down" && (player2.row+PADDLE_HEIGHT) < screenHeight {
+		x = player2.col
+		y = player2.row
 		player2.row++
 	} else if key == "Rune[w]" && player1.row > 0 {
+		x = player1.col
+		y = player1.row + player1.height - 1
 		player1.row--
 	} else if key == "Rune[s]" && (player1.row+PADDLE_HEIGHT) < screenHeight {
+		x = player1.col
+		y = player1.row
 		player1.row++
 	}
+	coordinatesToClear = append(coordinatesToClear, Coordinate{
+		x, y,
+	})
+}
+
+func clearCoordinates() {
+	for _, coordinate := range coordinatesToClear {
+		Print(coordinate.x, coordinate.y, 1, 1, ' ')
+	}
+	coordinatesToClear = nil
 }
