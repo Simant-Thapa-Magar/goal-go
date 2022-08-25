@@ -10,8 +10,8 @@ import (
 )
 
 type GameObject struct {
-	row, col, height, width int
-	symbol                  rune
+	row, col, height, width, rowVelocity, columnVelocity int
+	symbol                                               rune
 }
 
 var Screen tcell.Screen
@@ -25,20 +25,90 @@ const PADDLE_SYMBOL = 0x2588
 const BALL_SYMBOL = 0x25CF
 const BALL_HEIGHT = 1
 const BALL_WIDTH = 1
+const INITIAL_BALL_ROW_VELOCITY = 1
+const INITIAL_BALL_COLUMN_VELOCITY = 1
 
 func main() {
 
 	initScreen()
 	initGame()
 	userInput := listenUserInput()
-	for {
-		printGameState()
-		time.Sleep(50 * time.Millisecond)
-
+	for !isGameOver() {
+		time.Sleep(25 * time.Millisecond)
 		key := readInput(userInput)
 		handleUserInput(key)
-
+		updateGameState()
+		printGameState()
 	}
+
+	winner := getWinner()
+	printGameEndInfo(winner)
+	time.Sleep(5000 * time.Millisecond)
+}
+
+func updateGameState() {
+	for _, obj := range gameObjects {
+		obj.row += obj.rowVelocity
+		obj.col += obj.columnVelocity
+	}
+	handleBallCollision()
+}
+
+func handleBallCollision() {
+	screenWidth, screenHeight := Screen.Size()
+	var doesBallHitPaddle bool
+
+	// upper and lower collision
+	if ball.row <= 0 || ball.row >= screenHeight {
+		ball.rowVelocity *= -1
+	}
+
+	// collision with paddles
+	if ball.col+ball.columnVelocity <= 0 {
+		doesBallHitPaddle = ball.row >= player1.row && ball.row <= (player1.row+player1.height)
+	} else if ball.col+ball.columnVelocity >= screenWidth {
+		doesBallHitPaddle = ball.row >= player2.row && ball.row <= (player2.row+player2.height)
+	}
+
+	if doesBallHitPaddle {
+		ball.columnVelocity *= -1
+	}
+
+}
+
+func isGameOver() bool {
+	screenWidth, _ := Screen.Size()
+	return ball.col < 0 || ball.col > screenWidth
+}
+
+func getWinner() string {
+	screenWidth, _ := Screen.Size()
+	var winner string
+	if ball.col < 0 {
+		winner = "Player2"
+	} else if ball.col > screenWidth {
+		winner = "Player1"
+	}
+	return winner
+}
+
+func printGameEndInfo(winner string) {
+	screenWidth, screenHeight := Screen.Size()
+	winnerInfo := fmt.Sprintf("%s wins", winner)
+	gameEndInfo := fmt.Sprint("Game Over !!")
+
+	startPointX := screenWidth/2 - len(winnerInfo)/2
+	startPointY := screenHeight / 2
+	for i := 0; i < len(winnerInfo); i++ {
+		Print(startPointX+i, startPointY, 1, 1, rune(winnerInfo[i]))
+	}
+
+	startPointX = screenWidth/2 - len(gameEndInfo)/2
+	startPointY = screenHeight/2 - 1
+	for i := 0; i < len(gameEndInfo); i++ {
+		Print(startPointX+i, startPointY, 1, 1, rune(gameEndInfo[i]))
+	}
+	Screen.Show()
 }
 
 func Print(x, y, h, w int, ch rune) {
@@ -80,25 +150,31 @@ func initGame() {
 	w, h := Screen.Size()
 	PADDLE_START := h/2 - PADDLE_HEIGHT/2
 	player1 = &GameObject{
-		row:    PADDLE_START,
-		col:    0,
-		height: PADDLE_HEIGHT,
-		width:  PADDLE_WIDTH,
-		symbol: PADDLE_SYMBOL,
+		row:            PADDLE_START,
+		col:            0,
+		height:         PADDLE_HEIGHT,
+		width:          PADDLE_WIDTH,
+		symbol:         PADDLE_SYMBOL,
+		rowVelocity:    0,
+		columnVelocity: 0,
 	}
 	player2 = &GameObject{
-		row:    PADDLE_START,
-		col:    w - 1,
-		height: PADDLE_HEIGHT,
-		width:  PADDLE_WIDTH,
-		symbol: PADDLE_SYMBOL,
+		row:            PADDLE_START,
+		col:            w - 1,
+		height:         PADDLE_HEIGHT,
+		width:          PADDLE_WIDTH,
+		symbol:         PADDLE_SYMBOL,
+		rowVelocity:    0,
+		columnVelocity: 0,
 	}
 	ball = &GameObject{
-		row:    h / 2,
-		col:    w / 2,
-		height: BALL_HEIGHT,
-		width:  BALL_WIDTH,
-		symbol: BALL_SYMBOL,
+		row:            h / 2,
+		col:            w / 2,
+		height:         BALL_HEIGHT,
+		width:          BALL_WIDTH,
+		symbol:         BALL_SYMBOL,
+		rowVelocity:    INITIAL_BALL_COLUMN_VELOCITY,
+		columnVelocity: INITIAL_BALL_COLUMN_VELOCITY,
 	}
 	gameObjects = []*GameObject{
 		player1, player2, ball,
