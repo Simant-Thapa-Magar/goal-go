@@ -26,7 +26,7 @@ const BALL_SYMBOL = 0x25CF
 const BALL_HEIGHT = 1
 const BALL_WIDTH = 1
 const INITIAL_BALL_ROW_VELOCITY = 1
-const INITIAL_BALL_COLUMN_VELOCITY = 1
+const INITIAL_BALL_COLUMN_VELOCITY = 2
 
 func main() {
 
@@ -209,13 +209,13 @@ func handleUserInput(key string) {
 	if key == "Rune[q]" {
 		Screen.Fini()
 		os.Exit(0)
-	} else if key == "Up" && player1.row > 0 {
-		player1.row--
-	} else if key == "Down" && (player1.row+PADDLE_HEIGHT) < screenHeight {
-		player1.row++
-	} else if key == "Rune[w]" && player2.row > 0 {
+	} else if key == "Up" && player2.row > 0 {
 		player2.row--
-	} else if key == "Rune[s]" && (player2.row+PADDLE_HEIGHT) < screenHeight {
+	} else if key == "Down" && (player2.row+PADDLE_HEIGHT) < screenHeight {
 		player2.row++
+	} else if key == "Rune[w]" && player1.row > 0 {
+		player1.row--
+	} else if key == "Rune[s]" && (player1.row+PADDLE_HEIGHT) < screenHeight {
+		player1.row++
 	}
 }
