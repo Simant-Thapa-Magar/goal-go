@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/gdamore/tcell/v2/encoding"
@@ -19,6 +20,32 @@ const PADDLE_HEIGHT = 4
 const PADDLE_WIDTH = 1
 const PADDLE_SYMBOL = 0x2588
 
+func main() {
+
+	initScreen()
+	initGame()
+	userInput := listenUserInput()
+	for {
+		printGameState()
+		time.Sleep(50 * time.Millisecond)
+
+		key := readInput(userInput)
+
+		if key == "Rune[q]" {
+			Screen.Fini()
+			os.Exit(0)
+		} else if key == "Up" {
+			player1.row--
+		} else if key == "Down" {
+			player1.row++
+		} else if key == "Rune[w]" {
+			player2.row--
+		} else if key == "Rune[s]" {
+			player2.row++
+		}
+	}
+}
+
 func Print(x, y, h, w int, ch rune) {
 	for i := 0; i < h; i++ {
 		for j := 0; j < w; j++ {
@@ -27,29 +54,11 @@ func Print(x, y, h, w int, ch rune) {
 	}
 }
 
-func displayPaddles() {
+func printGameState() {
 	Screen.Clear()
 	Print(player1.col, player1.row, PADDLE_HEIGHT, PADDLE_WIDTH, PADDLE_SYMBOL)
 	Print(player2.col, player2.row, PADDLE_HEIGHT, PADDLE_WIDTH, PADDLE_SYMBOL)
 	Screen.Show()
-}
-
-// This program just prints "Hello, World!".  Press ESC to exit.
-func main() {
-
-	initScreen()
-	initGame()
-	displayPaddles()
-
-	for {
-		switch ev := Screen.PollEvent().(type) {
-		case *tcell.EventKey:
-			if ev.Key() == tcell.KeyEnter {
-				Screen.Fini()
-				os.Exit(0)
-			}
-		}
-	}
 }
 
 func initScreen() {
@@ -82,4 +91,27 @@ func initGame() {
 		row: PADDLE_START,
 		col: w - 1,
 	}
+}
+
+func listenUserInput() chan string {
+	userInput := make(chan string)
+	go func() {
+		for {
+			switch ev := Screen.PollEvent().(type) {
+			case *tcell.EventKey:
+				userInput <- ev.Name()
+			}
+		}
+	}()
+	return userInput
+}
+
+func readInput(userInput chan string) string {
+	var key string
+	select {
+	case key = <-userInput:
+	default:
+		key = ""
+	}
+	return key
 }
