@@ -20,7 +20,7 @@ type Coordinate struct {
 
 var Screen tcell.Screen
 var player1, player2, ball *GameObject
-var gamePauseStatus bool
+var gameReadyStatus, gamePauseStatus bool
 
 var gameObjects []*GameObject
 var coordinatesToClear []Coordinate
@@ -54,7 +54,7 @@ func main() {
 }
 
 func updateGameState() {
-	if gamePauseStatus {
+	if gamePauseStatus || !gameReadyStatus {
 		return
 	}
 	coordinatesToClear = append(coordinatesToClear, Coordinate{
@@ -120,7 +120,11 @@ func Print(x, y, h, w int, ch rune) {
 }
 
 func printGameState() {
-	if gamePauseStatus {
+	if !gameReadyStatus {
+		printInCenter(screenHeight/2-1, "Welcome to Goal !!", true)
+		printInCenter(screenHeight/2, "Press space to start the game!", true)
+		return
+	} else if gamePauseStatus {
 		printInCenter(screenHeight/2, "Game Paused !", true)
 		return
 	}
@@ -213,9 +217,11 @@ func handleUserInput(key string) {
 	if key == "Rune[q]" {
 		Screen.Fini()
 		os.Exit(0)
+	} else if key == "Rune[ ]" {
+		gameReadyStatus = true
 	} else if key == "Rune[p]" {
 		gamePauseStatus = !gamePauseStatus
-	} else if !gamePauseStatus {
+	} else if !gamePauseStatus && gameReadyStatus {
 		if key == "Up" && player2.row > 0 {
 			x = player2.col
 			y = player2.row + player2.height - 1
