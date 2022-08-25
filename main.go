@@ -79,7 +79,7 @@ func handleBallCollision() {
 	// collision with paddles
 	if ball.col+ball.columnVelocity <= 0 {
 		doesBallHitPaddle = ball.row >= player1.row && ball.row <= (player1.row+player1.height)
-	} else if ball.col+ball.columnVelocity >= screenWidth {
+	} else if ball.col+ball.columnVelocity >= screenWidth-1 {
 		doesBallHitPaddle = ball.row >= player2.row && ball.row <= (player2.row+player2.height)
 	}
 
