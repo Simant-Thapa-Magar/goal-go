@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"math"
+	"math/rand"
 	"os"
 	"time"
 
@@ -194,14 +195,16 @@ func initGame() {
 		rowVelocity:    0,
 		columnVelocity: 0,
 	}
+	rowVelocityDirection := getDirectionModifier()
+	columnVelocityDirection := getDirectionModifier()
 	ball = &GameObject{
 		row:            screenHeight / 2,
 		col:            screenWidth / 2,
 		height:         BALL_HEIGHT,
 		width:          BALL_WIDTH,
 		symbol:         BALL_SYMBOL,
-		rowVelocity:    INITIAL_BALL_COLUMN_VELOCITY,
-		columnVelocity: INITIAL_BALL_COLUMN_VELOCITY,
+		rowVelocity:    INITIAL_BALL_COLUMN_VELOCITY * rowVelocityDirection,
+		columnVelocity: INITIAL_BALL_COLUMN_VELOCITY * columnVelocityDirection,
 	}
 	gameObjects = []*GameObject{
 		player1, player2, ball,
@@ -302,4 +305,10 @@ func printInCenter(yAxis int, word string, trackClearCoordinates bool) {
 
 func clearAllScreen() {
 	Screen.Clear()
+}
+
+func getDirectionModifier() int {
+	rand.Seed(time.Now().Unix())
+	random := rand.Intn(11)
+	return int(math.Pow(-1, float64(random)))
 }
