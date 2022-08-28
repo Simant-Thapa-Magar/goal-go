@@ -26,10 +26,20 @@ var gameReadyStatus, gamePauseStatus bool
 
 var gameObjects []*GameObject
 var coordinatesToClear []Coordinate
+var borderToRegenerate *Coordinate
 var screenWidth, screenHeight int
 var player1Points, player2Points int
 var roundWinner string
 
+const FRAME_HEIGHT = 14
+const FRAME_WIDTH = 80
+const FRAME_BORDER_THICKNESS = 1
+const FRAME_BORDER_VERTICAL = '║'
+const FRAME_BORDER_HORIZONTAL = '═'
+const FRAME_BORDER_TOP_LEFT = '╔'
+const FRAME_BORDER_TOP_RIGHT = '╗'
+const FRAME_BORDER_BOTTOM_RIGHT = '╝'
+const FRAME_BORDER_BOTTOM_LEFT = '╚'
 const PADDLE_HEIGHT = 4
 const PADDLE_WIDTH = 1
 const PADDLE_SYMBOL = 0x2588
@@ -37,16 +47,17 @@ const BALL_SYMBOL = 0x25CF
 const BALL_HEIGHT = 1
 const BALL_WIDTH = 1
 const INITIAL_BALL_ROW_VELOCITY = 1
-const INITIAL_BALL_COLUMN_VELOCITY = 2
+const INITIAL_BALL_COLUMN_VELOCITY = 1
 const BEST_OF = 5
 
 func main() {
 
 	initScreen()
 	initGame()
+	displayFrame()
 	userInput := listenUserInput()
 	for !isGameOver() {
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(50 * time.Millisecond)
 		key := readInput(userInput)
 		handleUserInput(key)
 		updateGameState()
@@ -57,6 +68,7 @@ func main() {
 			time.Sleep(2500 * time.Millisecond)
 			initGame()
 			clearAllScreen()
+			displayFrame()
 		}
 	}
 
@@ -82,16 +94,21 @@ func updateGameState() {
 
 func handleBallCollision() {
 	var doesBallHitPaddle bool
-
+	frameOriginX, frameOriginY := getFrameOrigin()
 	// upper and lower collision
-	if ball.row <= 0 || ball.row >= screenHeight {
+	if ball.row < frameOriginY+1 || ball.row > frameOriginY+FRAME_HEIGHT-1 {
 		ball.rowVelocity *= -1
+		ball.col -= ball.columnVelocity
+		borderToRegenerate = &Coordinate{
+			ball.col,
+			ball.row,
+		}
 	}
 
 	// collision with paddles
-	if ball.col+ball.columnVelocity <= 1 {
+	if ball.col+ball.columnVelocity <= frameOriginX+1 {
 		doesBallHitPaddle = ball.row >= player1.row && ball.row <= (player1.row+player1.height)
-	} else if ball.col+ball.columnVelocity >= screenWidth-1 {
+	} else if ball.col+ball.columnVelocity >= frameOriginX+FRAME_WIDTH-2 {
 		doesBallHitPaddle = ball.row >= player2.row && ball.row <= (player2.row+player2.height)
 	}
 
@@ -106,7 +123,8 @@ func isGameOver() bool {
 }
 
 func isRoundOver() bool {
-	return ball.col < 0 || ball.col > screenWidth
+	frameOriginX, _ := getFrameOrigin()
+	return ball.col <= frameOriginX+1 || ball.col >= frameOriginX+FRAME_WIDTH-2
 }
 
 func getWinner() (string, int) {
@@ -152,6 +170,9 @@ func printGameState() {
 	for _, obj := range gameObjects {
 		Print(obj.col, obj.row, obj.height, obj.width, obj.symbol)
 	}
+	if borderToRegenerate != nil {
+		Print(borderToRegenerate.x, borderToRegenerate.y, FRAME_BORDER_THICKNESS, FRAME_BORDER_THICKNESS, FRAME_BORDER_HORIZONTAL)
+	}
 	Screen.Show()
 }
 
@@ -176,10 +197,11 @@ func initScreen() {
 }
 
 func initGame() {
+	frameOriginX, _ := getFrameOrigin()
 	PADDLE_START := screenHeight/2 - PADDLE_HEIGHT/2
 	player1 = &GameObject{
 		row:            PADDLE_START,
-		col:            0,
+		col:            frameOriginX + 1,
 		height:         PADDLE_HEIGHT,
 		width:          PADDLE_WIDTH,
 		symbol:         PADDLE_SYMBOL,
@@ -188,7 +210,7 @@ func initGame() {
 	}
 	player2 = &GameObject{
 		row:            PADDLE_START,
-		col:            screenWidth - 1,
+		col:            frameOriginX + FRAME_WIDTH - 2,
 		height:         PADDLE_HEIGHT,
 		width:          PADDLE_WIDTH,
 		symbol:         PADDLE_SYMBOL,
@@ -236,6 +258,7 @@ func readInput(userInput chan string) string {
 
 func handleUserInput(key string) {
 	var x, y int
+	_, frameOriginY := getFrameOrigin()
 	if key == "Rune[q]" {
 		Screen.Fini()
 		os.Exit(0)
@@ -244,19 +267,19 @@ func handleUserInput(key string) {
 	} else if key == "Rune[p]" {
 		gamePauseStatus = !gamePauseStatus
 	} else if !gamePauseStatus && gameReadyStatus {
-		if key == "Up" && player2.row > 0 {
+		if key == "Up" && player2.row > frameOriginY+1 {
 			x = player2.col
 			y = player2.row + player2.height - 1
 			player2.row--
-		} else if key == "Down" && (player2.row+PADDLE_HEIGHT) < screenHeight {
+		} else if key == "Down" && (player2.row+PADDLE_HEIGHT) < FRAME_HEIGHT+frameOriginY {
 			x = player2.col
 			y = player2.row
 			player2.row++
-		} else if key == "Rune[w]" && player1.row > 0 {
+		} else if key == "Rune[w]" && player1.row > frameOriginY+1 {
 			x = player1.col
 			y = player1.row + player1.height - 1
 			player1.row--
-		} else if key == "Rune[s]" && (player1.row+PADDLE_HEIGHT) < screenHeight {
+		} else if key == "Rune[s]" && (player1.row+PADDLE_HEIGHT) < FRAME_HEIGHT+frameOriginY {
 			x = player1.col
 			y = player1.row
 			player1.row++
@@ -275,10 +298,11 @@ func clearCoordinates() {
 }
 
 func updateScore() {
-	if ball.col < 0 {
+	frameOriginX, _ := getFrameOrigin()
+	if ball.col <= frameOriginX+1 {
 		roundWinner = "Player2"
 		player2Points++
-	} else if ball.col > screenWidth {
+	} else if ball.col >= frameOriginX+FRAME_WIDTH-2 {
 		roundWinner = "Player1"
 		player1Points++
 	}
@@ -311,4 +335,34 @@ func getDirectionModifier() int {
 	rand.Seed(time.Now().Unix())
 	random := rand.Intn(11)
 	return int(math.Pow(-1, float64(random)))
+}
+
+func getFrameOrigin() (int, int) {
+	return (screenWidth-FRAME_WIDTH)/2 - 1, (screenHeight-FRAME_HEIGHT)/2 - 1
+}
+
+func displayFrame() {
+	originX, originY := getFrameOrigin()
+	var topSymbol, bottomSymbol rune
+	for i := 0; i < FRAME_WIDTH; i++ {
+		// display top and bottm border
+		if i == 0 {
+			topSymbol = FRAME_BORDER_TOP_LEFT
+			bottomSymbol = FRAME_BORDER_BOTTOM_LEFT
+		} else if i == FRAME_WIDTH-1 {
+			topSymbol = FRAME_BORDER_TOP_RIGHT
+			bottomSymbol = FRAME_BORDER_BOTTOM_RIGHT
+		} else {
+			topSymbol = FRAME_BORDER_HORIZONTAL
+			bottomSymbol = FRAME_BORDER_HORIZONTAL
+		}
+		Print(originX+i, originY, FRAME_BORDER_THICKNESS, FRAME_BORDER_THICKNESS, topSymbol)
+		Print(originX+i, originY+FRAME_HEIGHT, FRAME_BORDER_THICKNESS, FRAME_BORDER_THICKNESS, bottomSymbol)
+	}
+
+	for j := 1; j < FRAME_HEIGHT; j++ {
+		// display side border
+		Print(originX, originY+j, FRAME_BORDER_THICKNESS, FRAME_BORDER_THICKNESS, FRAME_BORDER_VERTICAL)
+		Print(originX+FRAME_WIDTH-1, originY+j, FRAME_BORDER_THICKNESS, FRAME_BORDER_THICKNESS, FRAME_BORDER_VERTICAL)
+	}
 }
